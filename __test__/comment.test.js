@@ -9,6 +9,8 @@ let wrongToken = "token salah";
 let photoId = "";
 let wrongPhotoId = 123;
 
+let commentId = "";
+
 const userData = {
   id: 1,
   email: "firman@gmail.com",
@@ -30,84 +32,91 @@ const photoData = {
   UserId: 1,
 };
 
-const wrongPhotoData = {
-  title: "",
-  caption: "",
-  poster_image_url: "",
-  UserId: "",
-};
-
 beforeAll((done) => {
-  sequelize.queryInterface
-    .bulkInsert("Users", [userData], {})
-    .then(() => {
-      token = generateToken({
-        id: userData.id,
-        email: userData.email,
-        full_name: userData.full_name,
-        username: userData.username,
-        password: userData.password,
-        profile_image_url: userData.profile_image_url,
-        age: userData.age,
-        phone_number: userData.phone_number,
-      });
-      return done();
-    })
-    .catch((err) => {
-      done(err);
+  //register
+  request(app)
+    .post("/users/register")
+    .send(userData)
+    .end(function (err, res) {
+      if (err) {
+        done(err);
+      }
+
+      request(app)
+        .post("/users/login")
+        .send(userData)
+        .end(function (err, res) {
+          if (err) {
+            done(err);
+          }
+          token = res.body.token;
+
+          request(app)
+            .post("/photos")
+            .set("token", token)
+            .send(photoData)
+            .end(function (err, res) {
+              if (err) {
+                done(err);
+              }
+              photoId = res.body.id;
+              done();
+            });
+        });
     });
 });
 
-/**
- * Test createPhoto
- */
-describe("POST - sukses /photos", () => {
+describe("POST - success /comments", () => {
   it("should send response with 201 status code", (done) => {
     request(app)
-      .post("/photos")
+      .post("/comments")
       .set("token", token)
-      .send(photoData)
+      .send({ comment: "wow that's cool", PhotoId: photoId })
       .end(function (err, res) {
         if (err) {
           done(err);
         }
-        photoId = res.body.id;
+        commentId = res.body.comment.id;
         expect(res.status).toEqual(201);
-        expect(typeof res.body).toEqual("object");
-        expect(res.body).toHaveProperty("title");
-        expect(res.body).toHaveProperty("caption");
-        expect(res.body).toHaveProperty("poster_image_url");
-        expect(res.body).toHaveProperty("UserId");
-        expect(res.body.title).toEqual(photoData.title);
+        expect(res.body).toHaveProperty("comment");
+        expect(res.body.comment).toHaveProperty("id");
+        expect(res.body.comment).toHaveProperty("comment");
+        expect(res.body.comment).toHaveProperty("UserId");
+        expect(res.body.comment).toHaveProperty("PhotoId");
+        expect(typeof res.body.comment.id).toEqual("number");
+        expect(typeof res.body.comment.UserId).toEqual("number");
+        expect(typeof res.body.comment.PhotoId).toEqual("number");
+
         done();
       });
   });
 });
 
-describe("POST - failed /photos", () => {
-  it("should send response with 201 status code", (done) => {
+describe("POST - Failed /comments", () => {
+  it("should send response with 401 status code", (done) => {
     request(app)
-      .post("/photos")
-      .set("token", token)
-      .send(wrongPhotoData)
+      .post(`/comments`)
+      .set("token", wrongToken)
+      .send({ comment: "", PhotoId: photoId })
       .end(function (err, res) {
         if (err) {
           done(err);
         }
-        expect(res.status).toEqual(400);
+
+        expect(res.status).toEqual(401);
+        expect(typeof res.body).toEqual("object");
         expect(res.body).toHaveProperty("message");
+        expect(typeof res.body.message).toEqual("string");
+
         done();
       });
   });
 });
 
-/**
- * Test getAllPhotos
- */
-describe("GET - sukses /photos", () => {
+describe("GET - success /comments", () => {
   it("should send response with 200 status code", (done) => {
     request(app)
-      .get("/photos")
+      .get(`/comments`)
       .set("token", token)
       .end(function (err, res) {
         if (err) {
@@ -115,25 +124,20 @@ describe("GET - sukses /photos", () => {
         }
 
         expect(res.status).toEqual(200);
-        expect(res.body).toHaveProperty("photos");
-        expect(Array.isArray(res.body.photos)).toEqual(true);
-        expect(res.body.photos[0]).toHaveProperty("id");
-        expect(res.body.photos[0]).toHaveProperty("title");
-        expect(res.body.photos[0]).toHaveProperty("caption");
-        expect(res.body.photos[0]).toHaveProperty("poster_image_url");
-        expect(res.body.photos[0]).toHaveProperty("UserId");
+        expect(res.body).toHaveProperty("comment");
+        expect(Array.isArray(res.body.comment)).toEqual(true);
+        expect(res.body.comment[0]).toHaveProperty("Photo");
+        expect(res.body.comment[0]).toHaveProperty("User");
+
         done();
       });
   });
 });
 
-/**
- * Test getAllPhotos
- */
- describe("GET - failed /photos", () => {
+describe("GET - Failed /comments", () => {
   it("should send response with 401 status code", (done) => {
     request(app)
-      .get("/photos")
+      .get(`/comments`)
       .set("token", wrongToken)
       .end(function (err, res) {
         if (err) {
@@ -141,45 +145,47 @@ describe("GET - sukses /photos", () => {
         }
 
         expect(res.status).toEqual(401);
+        expect(typeof res.body).toEqual("object");
         expect(res.body).toHaveProperty("message");
+        expect(typeof res.body.message).toEqual("string");
+
         done();
       });
   });
 });
 
-
-/**
- * Test putPhotos
- */
-describe("PUT - sukses /photos/:id", () => {
+describe("PUT - success /comments/:id", () => {
   it("should send response with 200 status code", (done) => {
     request(app)
-      .put(`/photos/${photoId}`)
+      .put(`/comments/${commentId}`)
       .set("token", token)
-      .send(photoData)
+      .send({ comment: "wow that's cool" })
       .end(function (err, res) {
         if (err) {
           done(err);
         }
 
         expect(res.status).toEqual(200);
-        expect(res.body).toHaveProperty("photo");
-        expect(res.body.photo).toHaveProperty("id");
-        expect(res.body.photo).toHaveProperty("poster_image_url");
-        expect(res.body.photo).toHaveProperty("title");
-        expect(res.body.photo).toHaveProperty("caption");
-        expect(res.body.photo).toHaveProperty("UserId");
+        expect(res.body).toHaveProperty("comment");
+        expect(res.body.comment).toHaveProperty("id");
+        expect(res.body.comment).toHaveProperty("comment");
+        expect(res.body.comment).toHaveProperty("UserId");
+        expect(res.body.comment).toHaveProperty("PhotoId");
+        expect(typeof res.body.comment.id).toEqual("number");
+        expect(typeof res.body.comment.UserId).toEqual("number");
+        expect(typeof res.body.comment.PhotoId).toEqual("number");
+
         done();
       });
   });
 });
 
-describe("PUT - failed /photos/:id", () => {
+describe("PUT - Failed /comments/:id", () => {
   it("should send response with 404 status code", (done) => {
     request(app)
-      .put(`/photos/${wrongPhotoId}`)
+      .put(`/comments/212`)
       .set("token", token)
-      .send(photoData)
+      .send({ comment: "wow that's cool" })
       .end(function (err, res) {
         if (err) {
           done(err);
@@ -189,22 +195,17 @@ describe("PUT - failed /photos/:id", () => {
         expect(typeof res.body).toEqual("object");
         expect(res.body).toHaveProperty("message");
         expect(typeof res.body.message).toEqual("string");
-        expect(res.body.message).toEqual("Photo not found");
+
         done();
       });
   });
 });
 
-
-/**
- * Test deletePhotos
- */
-describe("DELETE - sukses /photos/:id", () => {
+describe("DELETE - success /comments/:id", () => {
   it("should send response with 200 status code", (done) => {
     request(app)
-      .delete(`/photos/${photoId}`)
+      .delete(`/comments/${commentId}`)
       .set("token", token)
-      .send(photoData)
       .end(function (err, res) {
         if (err) {
           done(err);
@@ -215,19 +216,19 @@ describe("DELETE - sukses /photos/:id", () => {
         expect(res.body).toHaveProperty("message");
         expect(typeof res.body.message).toEqual("string");
         expect(res.body.message).toEqual(
-          "Your photo has been successfully deleted"
+          "Your comment has been successfully deleted"
         );
+
         done();
       });
   });
 });
 
-describe("DELETE - failed /photos/:id", () => {
-  it("should send response with 200 status code", (done) => {
+describe("DELETE - failed-3 /comments/:id", () => {
+  it("should send response with 403 status code", (done) => {
     request(app)
-      .delete(`/photos/${wrongPhotoId}`)
+      .delete(`/comments/212`)
       .set("token", token)
-      .send(photoData)
       .end(function (err, res) {
         if (err) {
           done(err);
@@ -237,7 +238,7 @@ describe("DELETE - failed /photos/:id", () => {
         expect(typeof res.body).toEqual("object");
         expect(res.body).toHaveProperty("message");
         expect(typeof res.body.message).toEqual("string");
-        expect(res.body.message).toEqual("Photo not found");
+
         done();
       });
   });
@@ -245,20 +246,18 @@ describe("DELETE - failed /photos/:id", () => {
 
 afterAll((done) => {
   sequelize.queryInterface
-    .bulkDelete("Users", {})
+    .bulkDelete("Comments", {})
     .then(() => {
-      return done();
+      sequelize.queryInterface
+        .bulkDelete("Users", {})
+        .then(() => {
+          return done();
+        })
+        .catch((err) => {
+          done(err);
+        });
     })
     .catch((err) => {
       done(err);
     });
-
-  sequelize.queryInterface
-    .bulkDelete("Photos", {})
-    .then(() => {
-      return done();
-    })
-    .catch((err) => {
-      done(err);
-    });
-})
+});

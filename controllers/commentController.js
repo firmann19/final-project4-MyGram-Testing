@@ -1,11 +1,11 @@
-const { User, Photo, Comment } = require("../models");
 const {ValidationError} = require('sequelize')
+const { User, Photo, Comment } = require("../models");
 
 class CommentController {
   //Create
   static createComment(req, res) {
-    let user = res.locals.user;
-    let { comment, PhotoId } = req.body;
+    const user = res.locals.user;
+    const { comment, PhotoId } = req.body;
 
     Comment.create({
       comment,
